@@ -1,18 +1,21 @@
 import json
+from pathlib import Path
 
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer, BertJapaneseTokenizer
 import torch
 import numpy as np
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 id_dataset = 'TYO'
 # 1. 加载预训练中文BERT模型和tokenizer
 if id_dataset == 'haidian' or id_dataset == 'lixia':
-    model_name = '\model_weight\\bert-base-chinese'
+    model_name = str(PROJECT_ROOT / 'model_weight' / 'bert-base-chinese')
 elif id_dataset == 'NY':
-    model_name = '\model_weight\\bert-base-uncased'
+    model_name = str(PROJECT_ROOT / 'model_weight' / 'bert-base-uncased')
 elif id_dataset == 'TYO':
-    model_name = '\model_weight\\bert-base-japanese-v3'
+    model_name = str(PROJECT_ROOT / 'model_weight' / 'bert-base-japanese-v3')
 if id_dataset == 'TYO':
     tokenizer = BertJapaneseTokenizer.from_pretrained(model_name)
 else:
@@ -20,7 +23,7 @@ else:
 model = BertModel.from_pretrained(model_name)
 
 # 2. 定义POI名称列表示例（替换为实际数据）
-source_data_path = f'\datasets\\{id_dataset}\\v1_poi_data_neighbor_k_15.json'
+source_data_path = PROJECT_ROOT / 'datasets' / id_dataset / 'v1_poi_data_neighbor_k_15.json'
 
 
 def read_json(file_path):
@@ -80,4 +83,4 @@ def get_bert_embeddings(texts, batch_size=32):
 
 # 4. 生成所有POI的嵌入向量
 poi_vectors = get_bert_embeddings(poi_names)
-torch.save(poi_vectors, f'\datasets\\{id_dataset}\\name_embedding.pt')
+torch.save(poi_vectors, PROJECT_ROOT / 'datasets' / id_dataset / 'name_embedding.pt')

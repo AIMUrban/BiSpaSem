@@ -2,6 +2,7 @@ import csv
 import json
 import math
 import re
+from pathlib import Path
 from math import radians, cos, sin, asin, sqrt, ceil
 
 from pandas.core.frame import DataFrame
@@ -14,6 +15,8 @@ from sklearn.neighbors import BallTree
 from tqdm import tqdm
 from collections import defaultdict
 
+DATA_ROOT = Path(__file__).resolve().parents[1] / 'datasets'
+
 
 def swap_tuple_elements(input_list):
     return [(t[1],t[0]) for t in input_list]
@@ -22,19 +25,22 @@ def process_source_data(id_dataset):
     """
         For haidian and lixia
     """
-    original_data = []
-    with open(f'\datasets\\{id_dataset}F_data.csv', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        next(reader)  # 跳过标题行
-        for row in reader:
-            original_data.append(row)
+    data_path = DATA_ROOT / id_dataset
+    type_save_path = data_path / 'type_tree'
+    type_save_path.mkdir(parents=True, exist_ok=True)
+    with open(data_path / f'{id_dataset}F_data.csv', encoding='utf-8-sig', newline='') as file:
+        reader = csv.DictReader(file)
+        required_columns = {'name', 'location', 'type'}
+        if not required_columns.issubset(reader.fieldnames or []):
+            raise ValueError(f'{id_dataset}: CSV must contain name, location and type columns')
+        original_data = list(reader)
 
     category_list = []
     category_LAG_list = []
     category_MID_list = []
     name_list = []
     for data in original_data:
-        category_str = data[5]
+        category_str = data['type']
         category_str = category_str.split('|')
         category_str = category_str[0]
         categories = category_str.split(';')
@@ -43,7 +49,7 @@ def process_source_data(id_dataset):
         category_list.append(categories[-1])
         category_LAG_list.append(categories[-3])
         category_MID_list.append(categories[-2])
-        name_list.append(data[4])
+        name_list.append(data['name'])
 
 
     def process_poi_name(name_list):
@@ -79,7 +85,7 @@ def process_source_data(id_dataset):
 
     long_lan_list = []
     for item in tqdm(original_data, desc="get original lan_lon", total=len(original_data)):
-        longitude, latitude = convert_coordinate(item[3])
+        longitude, latitude = convert_coordinate(item['location'])
         long_lan_list.append((longitude, latitude))
 
     long_lan_list = swap_tuple_elements(long_lan_list)
@@ -94,9 +100,9 @@ def process_source_data(id_dataset):
         first_half = data_list[:half_length]
         second_half = data_list[half_length:]
 
-        save_to_csv(first_half, type_save_path + f"{prefix}_first_half.csv", encoding)
+        save_to_csv(first_half, type_save_path / f"{prefix}_first_half.csv", encoding)
 
-        save_to_csv(second_half, type_save_path + f"{prefix}_second_half.csv", encoding)
+        save_to_csv(second_half, type_save_path / f"{prefix}_second_half.csv", encoding)
 
         print(f"成功将列表分割为两部分并保存到 {prefix}_first_half.csv 和 {prefix}_second_half.csv")
 
@@ -117,15 +123,24 @@ def process_source_data(id_dataset):
     """
 
 
+    converted_paths = [type_save_path / f'poi_processed_original_location_{part}_half.csv'
+                       for part in ('first', 'second')]
+    missing_paths = [str(path) for path in converted_paths if not path.is_file()]
+    if missing_paths:
+        raise FileNotFoundError(
+            'Raw coordinate halves have been exported. Convert GCJ-02 coordinates, '
+            'preserve row order and the latitude,longitude column order, then save: '
+            + ', '.join(missing_paths))
+
     pro_loclist_first_half = []
-    with open(f'\datasets\\{id_dataset}\\type_tree\\poi_processed_original_location_first_half.csv',
+    with open(converted_paths[0],
               encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
             pro_loclist_first_half.append(row)
 
     pro_loclist_second_half = []
-    with open(f'\datasets\\{id_dataset}\\type_tree\\poi_processed_original_location_second_half.csv',
+    with open(converted_paths[1],
               encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
@@ -135,6 +150,8 @@ def process_source_data(id_dataset):
 
     pro_loclist_first_half.extend(pro_loclist_second_half)
     long_lan_list = pro_loclist_first_half
+    if len(long_lan_list) != len(original_data):
+        raise ValueError('Converted coordinate row count must match the source CSV')
 
     def list_to_dict(lst):
         return {value: index for index, value in enumerate(lst)}
@@ -146,7 +163,7 @@ def process_source_data(id_dataset):
     full_poi_data = []
     for i, (op, long_lan) in tqdm(enumerate(zip(original_data, long_lan_list)), total=len(long_lan_list), desc="get_full_poi_data"):
         name = name_list[i]
-        category_str = op[5]
+        category_str = op['type']
         category_str = category_str.split('|')
         category_str = category_str[0]
         categories = category_str.split(';')
@@ -229,15 +246,15 @@ def process_source_data(id_dataset):
             }
 
         result.append(poi_dict)
-    with open(f'\datasets\\{id_dataset}\\poi_data_neighbor_k_15.json', 'w', encoding='utf-8') as json_file:
+    with open(data_path / 'v1_poi_data_neighbor_k_15.json', 'w', encoding='utf-8') as json_file:
         json.dump(result, json_file, ensure_ascii=False, indent=4)
 
-def v1_new_neighbor_add():
+def v1_new_neighbor_add(id_dataset):
     """
             For NY and TYO
     """
     original_data = []
-    with open(f'\datasets\\{id_dataset}\\poi_2024_with_cate.csv',
+    with open(DATA_ROOT / id_dataset / 'poi_2024_with_cate.csv',
               encoding='utf-8') as file:
         reader = csv.reader(file)
         next(reader)  # 跳过标题行
@@ -347,14 +364,14 @@ def v1_new_neighbor_add():
         }
 
         result.append(poi_dict)
-    with open(f'\datasets\\{id_dataset}\\v1_poi_data_neighbor_k_15.json',
+    with open(DATA_ROOT / id_dataset / 'v1_poi_data_neighbor_k_15.json',
               'w', encoding='utf-8') as json_file:
         json.dump(result, json_file, ensure_ascii=False, indent=4)
 
     print("处理完成，数据已保存到 v1_poi_data_neighbor_k_15.json 文件中。")
     print()
 
-def get_class_text_neighbor_data():
+def get_class_text_neighbor_data(id_dataset):
     def read_json(file_path):
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
@@ -367,7 +384,7 @@ def get_class_text_neighbor_data():
         except Exception as e:
             print(f"发生未知错误：{e}")
         return data
-    data_list = read_json(v1_data)
+    data_list = read_json(DATA_ROOT / id_dataset / 'v1_poi_data_neighbor_k_15.json')
     text_data = []
     if id_dataset == 'haidian' or id_dataset == 'lixia':
         name_prompt = '名称：'
@@ -392,7 +409,7 @@ def get_class_text_neighbor_data():
 
         })
 
-    with open(f'\datasets\\{id_dataset}\\v1_poi_data with_class_neighbor_k_15.json', 'w',
+    with open(DATA_ROOT / id_dataset / 'v1_poi_data with_class_neighbor_k_15.json', 'w',
                   encoding='utf-8') as json_file:
             json.dump(text_data, json_file, ensure_ascii=False, indent=4)
     print("处理完成，数据已保存到 v1_poi_data with_class_neighbor_k_15.json 文件中。")
@@ -401,6 +418,10 @@ def get_class_text_neighbor_data():
 if __name__ == "__main__":
 
     id_dataset = 'lixia'
-    type_save_path = f'\datasets\\{id_dataset}\\type_tree\\'
-    v1_data = f'\datasets\\{id_dataset}\\v1_poi_data_neighbor_k_15.json'
-    process_source_data(id_dataset)
+    if id_dataset in ('haidian', 'lixia'):
+        process_source_data(id_dataset)
+    elif id_dataset in ('NY', 'TYO'):
+        v1_new_neighbor_add(id_dataset)
+    else:
+        raise ValueError(f'Unsupported dataset: {id_dataset}')
+    get_class_text_neighbor_data(id_dataset)

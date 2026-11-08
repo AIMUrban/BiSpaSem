@@ -108,7 +108,9 @@ class GeoBERTDataset(Dataset):
 
 
         # mask entity in the pseudo sentence
-        entity_mask_indices = np.where(entity_mask_arr)[0]
+        # Account for the leading CLS and exclude positions removed by truncation.
+        entity_mask_indices = np.where(entity_mask_arr)[0] + 1
+        entity_mask_indices = entity_mask_indices[entity_mask_indices <= max_token_len_middle]
         masked_entity_input = [mask_token_id if i in entity_mask_indices else pseudo_sentence[i] for i in
                                range(0, max_token_len)]
 

@@ -1,10 +1,13 @@
 import json
+from pathlib import Path
 
 import numpy as np
 from sklearn.neighbors import BallTree
 import math
 
 from tqdm import tqdm
+
+DATA_ROOT = Path(__file__).resolve().parents[1] / 'datasets'
 
 
 def read_json(file_path):
@@ -101,7 +104,7 @@ def calculate_poi_category_frequencies(poi_list, num_cate):
 if __name__ == "__main__":
     poi_list = []
     id_dataset = 'lixia'
-    source_data = read_json(f'datasets\\{id_dataset}\\poi_data_neighbor_k_15.json')
+    source_data = read_json(DATA_ROOT / id_dataset / 'v1_poi_data_neighbor_k_15.json')
     n = len(source_data)
     if id_dataset == 'lixia' or id_dataset == 'haidian':
       for data in source_data:
@@ -112,5 +115,5 @@ if __name__ == "__main__":
     num_cate = 140
     results = calculate_poi_category_frequencies(poi_list, num_cate)
     results = np.array(results)
-    np.save(f'datasets\\{id_dataset}\\neighbor_counts_50_500_small_circle.npy', results)
+    np.save(DATA_ROOT / id_dataset / 'neighbor_counts_50_500_small_circle.npy', results)
 
