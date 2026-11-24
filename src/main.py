@@ -98,7 +98,7 @@ def training(args):
     """
     In our actual training process, due to the risk of overfitting, after completing the training of two mask
     tasks on GeoBERT, we separately conducted pre-training for POI semantic annotation on GeoBERT. We used
-    a two-layer neural network with a ELU activation function as the prediction head and trained it for 3
+    a two-layer neural network with a ELU activation function as the prediction head and trained it for 4
     epochs. After the pre-training was completed, we reloaded the trained GeoBERT into
     the model, froze its parameters, and then performed the complete training and testing of GeoSemPA.
     """
